@@ -29,7 +29,7 @@ async def account_user(message: Union[types.Message, types.CallbackQuery], **kwa
 @dp.callback_query_handler(text="user_record")
 async def user_record(callback: types.CallbackQuery, **kwargs):
     records = await get_user_record(callback.from_user.id)
-    if len(records) > 1:
+    if len(records) > 0:
         await callback.message.delete()
         for record in records:
             message_text = f"<b>У вас есть активная запись.</b>\n\n" \
