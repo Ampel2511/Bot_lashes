@@ -1,3 +1,4 @@
+import datetime
 from typing import Union
 
 from aiogram import types
@@ -9,7 +10,7 @@ from handlers.users.cancel import cancel
 from keyboards.inline.get_days import dates_markup, months_markup, date_cd, hours_markup, continue_user_contact_markup, \
     check_user_contact_markup, choose_user_comment_markup, check_user_comment_markup, check_user_record_markup
 from loader import dp, bot
-from utils.db_api.commands import get_hour_by_id, update_record, add_user, get_user_by_id, get_user_record
+from utils.db_api.commands import get_hour_by_id, update_record, add_user, get_user_by_id, get_user_record, get_months
 
 
 async def list_months(message: Union[types.Message, types.CallbackQuery], year, **kwargs):
@@ -17,12 +18,28 @@ async def list_months(message: Union[types.Message, types.CallbackQuery], year, 
 
     if isinstance(message, types.Message):
         try:
-            user_record = await get_user_record(user_id=message.from_user.id)
-            message_text = f"<b>У вас есть активная запись.</b>\n\n" \
-                           f"Запись на <b>{user_record.date} {user_record.start_hour}</b>\n" \
-                           f"Контакт и заметка:\n" \
-                           f"{user_record.description}\n"
-            await message.answer(text=message_text)
+            user_records = await get_user_record(user_id=message.from_user.id)
+            if len(user_records) == 2:
+                for record in user_records:
+                    message_text = f"<b>У вас есть активная запись.</b>\n\n" \
+                                   f"Запись на <b>{record.date} {record.start_hour}</b>\n" \
+                                   f"Контакт и заметка:\n" \
+                                   f"{record.description}\n\n" \
+                                   f"Отменить запись можно через\n" \
+                                   f"<b>Личный кабинет 💼</b> --> <b>Активная запись</b>\n"
+                    await message.answer(text=message_text)
+            else:
+                record = user_records[0]
+                message_text = f"<b>У вас есть активная запись.</b>\n\n" \
+                               f"Запись на <b>{record.date} {record.start_hour}</b>\n" \
+                               f"Контакт и заметка:\n" \
+                               f"{record.description}\n"
+                if len(await get_months(year=year)) == 2:
+                    message_text += f"\nВы можете записаться на <b>другой</b> доступный месяц."
+                    await message.answer(text=message_text)
+                    await message.answer("Выберите месяц", reply_markup=markup)
+                else:
+                    await message.answer(text=message_text)
         except:
             await message.answer("Выберите месяц", reply_markup=markup)
 
@@ -32,7 +49,7 @@ async def list_months(message: Union[types.Message, types.CallbackQuery], year, 
 
 
 async def list_dates(callback: types.CallbackQuery, year, month, **kwargs):
-    markup = await dates_markup(year=year, month=month)
+    markup = await dates_markup(day=datetime.datetime.now().day, year=year, month=month)
     await callback.message.edit_text(text="Выберите дату", reply_markup=markup)
 
 
@@ -105,8 +122,7 @@ async def confirm_user_contact(callback: types.CallbackQuery, state: FSMContext,
 
 @dp.callback_query_handler(text="get_user_comment")
 async def get_user_comment(callback: types.CallbackQuery, state: FSMContext, **kwargs):
-    await callback.message.edit_reply_markup()
-    await callback.message.answer(text="Напишите одним сообщением, "
+    await callback.message.edit_text(text="Напишите одним сообщением, "
                                        "что хотите добавить в заметку к вашей записи для мастера:")
     await state.set_state("add_comment")
 
@@ -160,35 +176,62 @@ async def create_record(callback: types.CallbackQuery, state: FSMContext, **kwar
     hour_id = int(data["hour_id"])
     user_contact = data["user_description"]["user_contact"]
     user_comment = data["user_description"]["user_comment"]
-    try:
+    hour_obj = await get_hour_by_id(hour_id=hour_id)
+    if hour_obj.reserved:
+        await callback.message.edit_text(text="Данное время уже занято. Пожалуйста, выберите другое.")
+        day, month, year = hour_obj.date.split("/")
+        markup = await hours_markup(year=year, month=month, day=day)
+        await callback.message.answer(text="Выберите время", reply_markup=markup)
+    else:
+        try:
+            user = await get_user_by_id(user_id=callback.from_user.id)
+            try:
+                user_record = [_ for _ in await get_user_record(user_id=user.user_id)][0]
+                if hour_obj.date.split("/")[1] == user_record.date.split("/")[1]:
+                    message_text = f"<b>У вас есть активная запись.</b>\n\n" \
+                                   f"Запись на <b>{user_record.date} {user_record.start_hour}</b>\n" \
+                                   f"Контакт и заметка:\n" \
+                                   f"{user_record.description}\n\n" \
+                                   f"Вы можете записаться на <b>другой</b> доступный месяц."
+                    await callback.message.edit_text(text=message_text)
+                    await state.finish()
+                    markup = await months_markup(year=int(hour_obj.date.split("/")[2]))
+                    await callback.message.answer("Выберите месяц", reply_markup=markup)
+                    return
+                else:
+                    await update_record(hour_id=hour_id, user_reserved=user.user_id,
+                                        description=f"{user_contact}\n"
+                                                    f"{user_comment if user_comment else ''}", )
+            except:
+                await update_record(hour_id=hour_id, user_reserved=user.user_id,
+                                    description=f"{user_contact}\n"
+                                                f"{user_comment if user_comment else ''}", )
+        except:
+            await add_user(
+                user_id=callback.from_user.id,
+                first_name=callback.from_user.first_name,
+                last_name=callback.from_user.last_name,
+                login=callback.from_user.username,
+                contact=user_contact,
+                comment=None,
+            )
+            await update_record(hour_id=hour_id, user_reserved=callback.from_user.id,
+                                description=f"{user_contact}\n"
+                                            f"{user_comment if user_comment else ''}", )
+        open_hour = await get_hour_by_id(hour_id=hour_id)
         user = await get_user_by_id(user_id=callback.from_user.id)
-        await update_record(hour_id=hour_id, user_reserved=user.user_id,
-                            description=f"{user_contact}\n"
-                                        f"{user_comment if user_comment else ''}",)
-    except:
-        await add_user(
-            user_id = callback.from_user.id,
-            first_name = callback.from_user.first_name,
-            last_name = callback.from_user.last_name,
-            login = callback.from_user.username,
-            contact = user_contact,
-            comment = None,
-        )
-        await update_record(hour_id=hour_id, user_reserved=callback.from_user.id,
-                            description=f"{user_contact}\n"
-                                        f"{user_comment if user_comment else ''}", )
-    open_hour = await get_hour_by_id(hour_id=hour_id)
-    user = await get_user_by_id(user_id=callback.from_user.id)
-    await bot.send_message(text=f"<b>НОВАЯ ЗАПИСЬ!</b> \n\n"
-                                f"<u>Запись на</u> <b>{open_hour.date} - {open_hour.start_hour}</b>\n\n"
-                                f"Клиент:\n"
-                                f"{user.first_name} {user.last_name if user.last_name else ''} {'@' + user.login if user.login else ''}\n"
-                                f"<b>Описание:</b>\n"
-                                f"{open_hour.description}",
-                           chat_id=admins[0]
-                           )
-    await callback.message.edit_text(text=f"Вы успешно записались на <b>{open_hour.date} - {open_hour.start_hour}</b>")
-    await state.finish()
+        await bot.send_message(text=f"<b>НОВАЯ ЗАПИСЬ!</b> \n\n"
+                                    f"<u>Запись на</u> <b>{open_hour.date} - {open_hour.start_hour}</b>\n\n"
+                                    f"Клиент:\n"
+                                    f"{user.first_name} {user.last_name if user.last_name else ''} {'@' + user.login if user.login else ''}\n"
+                                    f"<b>Описание:</b>\n"
+                                    f"{open_hour.description}",
+                               chat_id=admins[0]
+                               )
+        await callback.message.edit_text(
+            text=f"Вы успешно записались на <b>{open_hour.date} - {open_hour.start_hour}</b>")
+        await state.finish()
+
 
 
 @dp.callback_query_handler(date_cd.filter())

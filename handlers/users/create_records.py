@@ -32,7 +32,7 @@ async def back_to_month(callback: types.CallbackQuery, state: FSMContext, **kwar
 @dp.message_handler(state="get_days")
 async def get_days(message: types.Message, state: FSMContext, **kwargs):
     days_intervals = message.text.split(", ")
-    days = []
+    days = [] 
     for interval in days_intervals:
         interval = interval.split("-")
         days += [int(i) for i in range(int(interval[0]), int(interval[1]) + 1)]

@@ -68,11 +68,11 @@ async def months_markup(year):
     return markup
 
 
-async def dates_markup(month, year):
+async def dates_markup(day, month, year):
     CURRENT_LEVEL = 1
     markup = InlineKeyboardMarkup(row_width=3)
 
-    days = await get_free_days(month=month, year=year)
+    days = await get_free_days(day=day, month=month, year=year)
 
     for day in days:
         button_text = f"{day}.{month}"

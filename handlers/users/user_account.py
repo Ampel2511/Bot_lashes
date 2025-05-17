@@ -28,15 +28,17 @@ async def account_user(message: Union[types.Message, types.CallbackQuery], **kwa
 
 @dp.callback_query_handler(text="user_record")
 async def user_record(callback: types.CallbackQuery, **kwargs):
-    try:
-        record = await get_user_record(callback.from_user.id)
-        message_text = f"<b>У вас есть активная запись.</b>\n\n" \
-                       f"Запись на <b>{record.date} {record.start_hour}</b>\n" \
-                       f"Контакт и заметка:\n" \
-                       f"{record.description}\n"
-        markup = await user_record_keyboard(hour_id=record.id)
-        await callback.message.edit_text(text=message_text, reply_markup=markup)
-    except:
+    records = await get_user_record(callback.from_user.id)
+    if len(records) > 1:
+        await callback.message.delete()
+        for record in records:
+            message_text = f"<b>У вас есть активная запись.</b>\n\n" \
+                           f"Запись на <b>{record.date} {record.start_hour}</b>\n" \
+                           f"Контакт и заметка:\n" \
+                           f"{record.description}\n"
+            markup = await user_record_keyboard(hour_id=record.id)
+            await callback.message.answer(text=message_text, reply_markup=markup)
+    else:
         message_text = f'У вас сейчас нет активной записи.\n' \
                        f'Если хотите записаться, откройте меню и выберите "Записаться 📝"'
         await callback.message.edit_text(text=message_text)
@@ -48,7 +50,7 @@ async def check_cancel_user_record(callback: types.CallbackQuery, hour_id, **kwa
 
 
 async def confirm_cancel(callback: types.CallbackQuery, hour_id, **kwargs):
-    record = await get_user_record(callback.from_user.id)
+    record = [_ for _ in await get_user_record(callback.from_user.id)][0]
     day, month, year = record.date.split("/")
     await cancel_record(hour_id=hour_id)
     await update_day_status(day=day, month=month, year=year)

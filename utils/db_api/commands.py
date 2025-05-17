@@ -17,12 +17,13 @@ async def get_months(year):
     ).gino.all()]
 
 
-async def get_free_days(year, month):
+async def get_free_days(year, month, day):
     return [_.day for _ in await OpenDays.query.distinct(OpenDays.day).where(
         and_(
+            OpenDays.available == True,
             OpenDays.year == year,
             OpenDays.month == month,
-            OpenDays.available == True
+            OpenDays.day != day,
         )
     ).gino.all()
             ]
@@ -70,7 +71,7 @@ async def get_history_records(year, month, day) -> List[History]:
 
 
 async def get_user_record(user_id):
-    return await OpenHours.query.where(OpenHours.user_reserved == user_id).gino.first()
+    return await OpenHours.query.where(OpenHours.user_reserved == user_id).gino.all()
 
 
 async def get_user_history(user_id):

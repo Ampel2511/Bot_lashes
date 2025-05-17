@@ -26,7 +26,6 @@ async def get_records_days(callback: types.CallbackQuery, year, month, **kwargs)
 async def print_records(callback: types.CallbackQuery, year, month, day, **kwargs):
     records = await get_users_records(year=year, month=month, day=day)
     await callback.message.edit_text(text=f"<b>Записи на {day}/{month}/{year}</b>")
-    message_text = ""
     for record in records:
         message_text = f"<u>Время: {record.start_hour}\n\n</u>"
         if record.reserved:
