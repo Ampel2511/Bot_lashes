@@ -13,6 +13,7 @@ create_records_cd = CallbackData("create", "level", "year", "month")
 get_records_cd = CallbackData("get", "level", "year", "month", "day")
 edit_records_cd = CallbackData("edit", "level", "year", "month", "day", "hour_id")
 history_cd = CallbackData("history", "level", "year", "month", "day", "history_id")
+price_cd = CallbackData("price", "level")
 
 
 def make_choose_action_cd(level=0, year=0):
@@ -59,6 +60,12 @@ def make_history_records_cd(level, year=0, month=0, day=0, history_id=0):
     )
 
 
+def make_price_cd(level):
+    return price_cd.new(
+        level=level
+    )
+
+
 async def actions_keyboard(year):
     markup = InlineKeyboardMarkup(row_width=1)
 
@@ -79,6 +86,11 @@ async def actions_keyboard(year):
                )
     markup.row(InlineKeyboardButton(text="Посмотреть историю",
                                     callback_data=make_choose_action_cd(level=4,
+                                                                        year=year)
+                                    )
+               )
+    markup.row(InlineKeyboardButton(text="Изменить прайс",
+                                    callback_data=make_choose_action_cd(level=5,
                                                                         year=year)
                                     )
                )
@@ -631,6 +643,7 @@ async def history_records_in_day_keyboard(year, month, day):
                )
     return markup
 
+
 async def history_back(year, month, day):
     markup = InlineKeyboardMarkup(row_width=1)
     markup.row(InlineKeyboardButton(text="Назад",
@@ -639,6 +652,40 @@ async def history_back(year, month, day):
                                                                           month=month,
                                                                           day=day,
                                                                           )
+                                    )
+               )
+    return markup
+
+
+async def price_keyboard():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.row(InlineKeyboardButton(text="Изменить прайс",
+                                    callback_data=make_price_cd(level=1)
+                                    )
+               )
+    markup.row(InlineKeyboardButton(text="Назад",
+                                    callback_data=make_price_cd(level=9)
+                                    )
+               )
+    return markup
+
+
+async def get_price_keyboard():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.row(InlineKeyboardButton(text="Главное меню",
+                                    callback_data=make_price_cd(level=10)
+                                    )
+               )
+    return markup
+
+async def confirm_price_keyboard():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.row(InlineKeyboardButton(text="Принять",
+                                    callback_data=make_price_cd(level=2)
+                                    )
+               )
+    markup.row(InlineKeyboardButton(text="Ввести заново",
+                                    callback_data=make_price_cd(level=1)
                                     )
                )
     return markup
