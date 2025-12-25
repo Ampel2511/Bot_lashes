@@ -73,7 +73,9 @@ async def info_continue(callback: types.CallbackQuery, year, month, day, hour_id
                                            "2️⃣ Опоздание более чем на 15 минут\n\n"
                                            "<b>Для всех клиентов:</b>\n"
                                            "При опоздании более чем на 15 минут - запись отменяется\n\n"
-                                           "Оплата производится на Т-Банк или наличными")
+                                           "Оплата производится:\n"
+                                           f"1️⃣ СБП на Т-Банк по номеру +79537349669, после оплаты необходимо прислать чек перевода в ЛС\n"
+                                           "2️⃣ Наличными")
         markup = await continue_user_contact_markup(year=year, month=month, day=day)
         await callback.message.answer(
             text="Вам необходимо указать ваши контактные данные, по которым с вами можно связаться."
